@@ -125,8 +125,10 @@ async def cb_q_retry(cq: CallbackQuery, state: FSMContext, storage: Storage, db:
         await cq.answer(f"#{vid} → DISCOVERED, попробую снова")
     else:
         await cq.answer("Можно ретраить только FAILED", show_alert=True)
-    cq.data = CB_QUEUE
-    await cb_queue(cq, state, storage, db, settings)
+    await cb_queue(
+        cq.model_copy(update={"data": CB_QUEUE}),
+        state, storage, db, settings,
+    )
 
 
 @router.callback_query(F.data.startswith(CB_Q_DEL), StateFilter("*"))
@@ -142,5 +144,7 @@ async def cb_q_del(cq: CallbackQuery, state: FSMContext, storage: Storage, db: D
         await cq.answer(f"#{vid} удалён")
     else:
         await cq.answer("Не найден", show_alert=True)
-    cq.data = CB_QUEUE
-    await cb_queue(cq, state, storage, db, settings)
+    await cb_queue(
+        cq.model_copy(update={"data": CB_QUEUE}),
+        state, storage, db, settings,
+    )

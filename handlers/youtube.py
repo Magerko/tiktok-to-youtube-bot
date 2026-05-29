@@ -140,8 +140,10 @@ async def cb_yt_del(cq: CallbackQuery, state: FSMContext, storage: Storage,
         await cq.answer(f"Удалён: {ch.title if ch else ch_id}")
     else:
         await cq.answer("Не найден", show_alert=True)
-    cq.data = "yt:list:0"
-    await cb_yt_list(cq, state, storage, settings)
+    await cb_yt_list(
+        cq.model_copy(update={"data": "yt:list:0"}),
+        state, storage, settings,
+    )
 
 
 @router.callback_query(F.data == CB_YT_ADD)

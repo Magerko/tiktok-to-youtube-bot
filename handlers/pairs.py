@@ -91,8 +91,7 @@ async def cb_pr_mode(cq: CallbackQuery, state: FSMContext, storage: Storage) -> 
     new_mode = "auto" if p.mode == "review" else "review"
     storage.set_pair_mode(pair_id, new_mode)
     await cq.answer(f"Режим: {new_mode}")
-    cq.data = "pr:list:0"
-    await cb_pr_list(cq, state, storage)
+    await cb_pr_list(cq.model_copy(update={"data": "pr:list:0"}), state, storage)
 
 
 @router.callback_query(F.data.startswith(CB_PR_TOG), StateFilter("*"))
@@ -105,8 +104,7 @@ async def cb_pr_tog(cq: CallbackQuery, state: FSMContext, storage: Storage) -> N
         return
     storage.set_pair_enabled(pair_id, not p.enabled)
     await cq.answer("Включена" if not p.enabled else "На паузе")
-    cq.data = "pr:list:0"
-    await cb_pr_list(cq, state, storage)
+    await cb_pr_list(cq.model_copy(update={"data": "pr:list:0"}), state, storage)
 
 
 @router.callback_query(F.data.startswith(CB_PR_DEL), StateFilter("*"))
@@ -117,8 +115,7 @@ async def cb_pr_del(cq: CallbackQuery, state: FSMContext, storage: Storage) -> N
         await cq.answer("Удалена")
     else:
         await cq.answer("Не найдена", show_alert=True)
-    cq.data = "pr:list:0"
-    await cb_pr_list(cq, state, storage)
+    await cb_pr_list(cq.model_copy(update={"data": "pr:list:0"}), state, storage)
 
 
 def _pick_list(items, prefix: str, label_fn) -> InlineKeyboardMarkup:

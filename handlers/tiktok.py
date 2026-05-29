@@ -102,8 +102,7 @@ async def cb_tt_del(cq: CallbackQuery, state: FSMContext, storage: Storage) -> N
         await cq.answer(f"Удалён: @{acc.username if acc else acc_id}")
     else:
         await cq.answer("Не найден", show_alert=True)
-    cq.data = "tt:list:0"
-    await cb_tt_list(cq, state, storage)
+    await cb_tt_list(cq.model_copy(update={"data": "tt:list:0"}), state, storage)
 
 
 @router.callback_query(F.data.startswith(CB_TT_TOG), StateFilter("*"))
@@ -116,8 +115,7 @@ async def cb_tt_tog(cq: CallbackQuery, state: FSMContext, storage: Storage) -> N
         return
     storage.set_tiktok_enabled(acc_id, not acc.enabled)
     await cq.answer("Включен" if not acc.enabled else "На паузе")
-    cq.data = "tt:list:0"
-    await cb_tt_list(cq, state, storage)
+    await cb_tt_list(cq.model_copy(update={"data": "tt:list:0"}), state, storage)
 
 
 @router.callback_query(F.data == CB_TT_ADD)
@@ -269,8 +267,10 @@ async def cb_tt_cookies_delete(cq: CallbackQuery, state: FSMContext, storage: St
     removed = cookies.remove_cookies(settings.secrets_folder, acc_id)
     await cq.answer("Cookies удалены" if removed else "Не было что удалять")
     # Перерисовываем экран этого аккаунта
-    cq.data = f"{CB_TT_CK}{acc_id}"
-    await cb_tt_cookies_account(cq, state, storage, settings)
+    await cb_tt_cookies_account(
+        cq.model_copy(update={"data": f"{CB_TT_CK}{acc_id}"}),
+        state, storage, settings,
+    )
 
 
 @router.message(UploadCookies.waiting_doc, F.document)

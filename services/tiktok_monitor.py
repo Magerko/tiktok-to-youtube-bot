@@ -13,11 +13,16 @@ from services.storage import Storage, TikTokAccount
 
 log = logging.getLogger("utub.monitor")
 
-# Хватает с запасом для periodic polling. Больше — дольше запрос.
+# Сколько последних entries берём. yt-dlp playlistend для TikTok user-page
+# часто игнорируется — режем сами после fetch.
 PLAYLIST_END = 20
 
 # Между аккаунтами — чтобы не словить rate-limit.
 PER_ACCOUNT_PAUSE_SEC = 5
+
+# Защита от внезапного флуда: если за тик «новых» больше — что-то странное
+# (out-of-window last_video_id, перестановка выдачи) — re-bootstrap без заливки.
+MAX_NEW_PER_TICK = 10
 
 
 @dataclass(slots=True)
@@ -68,6 +73,8 @@ def _fetch_user_entries_sync(username: str, cookiefile: str | None = None) -> li
             description=(e.get("description") or "").strip() or None,
             duration_sec=float(e["duration"]) if e.get("duration") is not None else None,
         ))
+        if len(out) >= PLAYLIST_END:
+            break
     return out
 
 
@@ -138,20 +145,35 @@ class TikTokMonitor:
             )
             return
 
-        # Первый запуск: фиксируем свежий ID, историю не льём.
-        if acc.last_video_id is None:
+        # Первый запуск или предыдущий last_video_id невалидный — фиксируем и выходим.
+        if acc.last_video_id is None or not acc.last_video_id.isdigit():
             self.storage.set_tiktok_last_video(acc.id, entries[0].video_id)
             log.info("@%s: bootstrap, last_video_id=%s",
                      acc.username, entries[0].video_id)
             return
 
+        # TikTok video_id монотонно растут со временем — сравниваем как числа,
+        # это надёжнее, чем равенство строк (если порог выпал из окна выдачи).
+        threshold = int(acc.last_video_id)
         new_entries: list[_Entry] = []
         for e in entries:
-            if e.video_id == acc.last_video_id:
-                break
+            if not e.video_id.isdigit():
+                continue
+            if int(e.video_id) <= threshold:
+                continue
             new_entries.append(e)
 
         if not new_entries:
+            return
+
+        # Safety: за тик не должно появиться более MAX_NEW_PER_TICK новых видео.
+        # Иначе считаем, что что-то не так с окном/выдачей — re-bootstrap без заливки.
+        if len(new_entries) > MAX_NEW_PER_TICK:
+            log.warning(
+                "@%s: %d «новых» видео за тик (порог %d). Re-bootstrap, заливка пропущена.",
+                acc.username, len(new_entries), MAX_NEW_PER_TICK,
+            )
+            self.storage.set_tiktok_last_video(acc.id, entries[0].video_id)
             return
 
         # От старого к новому — чтобы порядок аплоада совпал с порядком публикаций.
