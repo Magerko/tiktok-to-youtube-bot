@@ -1,0 +1,27 @@
+services:
+  bot:
+    build: .
+    container_name: utub-tiktok-bot
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATA_FOLDER: /data/pydata
+      DOWNLOAD_FOLDER: /data/downloads
+      SECRETS_FOLDER: /data/secrets
+      REDIS_URL: redis://redis:6379/0
+    volumes:
+      - ./pydata:/data/pydata
+      - ./downloads:/data/downloads
+      - ./secrets:/data/secrets
+    depends_on:
+      - redis
+
+  redis:
+    image: redis:7-alpine
+    container_name: utub-tiktok-redis
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data
+
+volumes:
+  redis-data:
